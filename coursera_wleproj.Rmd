@@ -1,0 +1,136 @@
+---
+title: "PML: Weight Lifting Exercise"
+output: html_document
+---
+###Background
+
+In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har. 
+
+Our goal is to predict in which one of the 5 ways that participants performed in 20 separate qualitative measurements.
+
+
+###Data 
+
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+###Load required libraries
+```{r}
+library(caret)
+library(randomForest)
+library(rattle)
+library(sqldf)
+library(doBy)
+
+```
+
+###Read data
+
+
+```{r}
+pmltraining <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+pmltesting <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+pmltraining1 <- read.csv("/media/S/Temp/pml-training.csv")
+pmltesting1 <- read.csv("/media/S/Temp/pml-testing.csv")
+
+```
+
+###Data cleaning and partition for validation
+```{r}
+dim(pmltraining);dim(pmltesting)
+```
+
+We first check the data quality in both training and testing datasets. It turns out there are many missing values and redundant columns. After converting non-numeric entries in a numeric field, such as '#DIV/0!' into 'NA', we use function `colSums` to identify columns that contains missing values. 
+
+These columns together with a number of columns of timestamps are removed from both training and testing datasets before modeling.
+
+We also separated the testing dataset into testing and validation partitions. Set seed so the same result can be reproduced.
+```{r}
+# To see the missing values
+# summary(pmltraining)
+prePro<-rbind(pmltraining[,-160],pmltesting[-160])
+prePro[prePro=='#DIV/0!']<-NA
+nona<-colSums(is.na(prePro)) == 0
+nona[c(1,3:5)]<-FALSE
+nona[160]<-TRUE
+
+#set.seed(1234)
+mlData<-pmltraining[,nona]
+inTrain<-createDataPartition(y=mlData$classe,p=0.7,list=F)
+training<-mlData[inTrain,]
+validating<-mlData[-inTrain,]
+
+#do the same variable selection on testing dataset
+testing<-pmltesting[,nona]
+```
+
+###Exploratory plots
+
+Don't know what plots are appropriate yet ...
+```{r}
+toPlot<-sqldf('select
+              classe,
+              total_accel_belt,
+              total_accel_arm,
+              total_accel_dumbbell,
+              total_accel_forearm
+              from training ')
+featurePlot(toPlot[,2:5],toPlot[,1],plot='pairs',xlab='total accel')
+
+qplot(total_accel_belt,total_accel_arm,col=classe,data=training,
+      main='Predictors by classe')
+```
+
+###Data preprocessing
+
+Did PCA but it didn't help - will drop from the writeup
+```{r}
+# to see the predictors
+# names(training)
+preProc<-preProcess(training[,-c(1:2,56)],method='pca',thresh=.99)
+preProc$numComp
+
+pc<-predict(preProc,training[,-c(1:2,56)])
+trainPC<-cbind(pc,training[,c(1:2,56)])
+dim(trainPC)
+
+pc<-predict(preProc,validating[,-c(1:2,56)])
+validPC<-cbind(pc,validating[,c(1:2,56)])
+
+pc<-predict(preProc,testing[,-c(1:2,56)])
+testPC<-cbind(pc,testing[,c(1:2,56)])
+```
+
+
+###Modeling
+```{r}
+# very slow!
+# system.time(modFit<-train(classe~.,method='rf',data=trainPC,prox=T))
+# modFit$finalModel
+
+system.time(PCFit<-randomForest(classe~.,data=trainPC,ntree=500))
+PCFit
+system.time(modFit<-randomForest(classe~.,data=training,ntree=200))
+modFit
+
+```
+
+###Validation
+```{r}
+pred<-predict(PCFit,validPC)
+table(pred,validPC$classe)
+pred<-predict(modFit,validating)
+table(pred,validating$classe)
+```
+
+###Testing
+```{r}
+#pred<-predict(modFit,testing)
+#pred
+```

@@ -32,12 +32,11 @@ library(doBy)
 
 ###Read data
 
-
 ```{r}
 pmltraining <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
 pmltesting <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
-pmltraining1 <- read.csv("/media/S/Temp/pml-training.csv")
-pmltesting1 <- read.csv("/media/S/Temp/pml-testing.csv")
+#pmltraining1 <- read.csv("/media/S/Temp/pml-training.csv")
+#pmltesting1 <- read.csv("/media/S/Temp/pml-testing.csv")
 
 ```
 
@@ -46,23 +45,26 @@ pmltesting1 <- read.csv("/media/S/Temp/pml-testing.csv")
 dim(pmltraining);dim(pmltesting)
 ```
 
-We first check the data quality in both training and testing datasets. It turns out there are many missing values and redundant columns. After converting non-numeric entries in a numeric field, such as '#DIV/0!' into 'NA', we use function `colSums` to identify columns that contains missing values. 
+We first check the data quality in training dataset. We first convert '#DIV/0!' in a numeric field to 'NA', then use function `colSums` to identify columns that contains missing values. 
 
-These columns together with a number of columns of timestamps are removed from both training and testing datasets before modeling.
+These columns together with a number of columns of timestamps are removed from both training set. The same cleaning rule is then applied to the testing dataset.
+
+(We also tried to remove missing record by rows but it turned out to be inapplicable because 98% of data would have been removed.)
 
 We also separated the testing dataset into testing and validation partitions. Set seed so the same result can be reproduced.
 ```{r}
 # To see the missing values
 # summary(pmltraining)
-prePro<-rbind(pmltraining[,-160],pmltesting[-160])
+
+# use training data only to remove NA columns
+prePro<-pmltraining
 prePro[prePro=='#DIV/0!']<-NA
 nona<-colSums(is.na(prePro)) == 0
 nona[c(1,3:5)]<-FALSE
-nona[160]<-TRUE
 
 #set.seed(1234)
 mlData<-pmltraining[,nona]
-inTrain<-createDataPartition(y=mlData$classe,p=0.7,list=F)
+inTrain<-createDataPartition(y=mlData$classe,p=0.5,list=F)
 training<-mlData[inTrain,]
 validating<-mlData[-inTrain,]
 
@@ -89,22 +91,16 @@ qplot(total_accel_belt,total_accel_arm,col=classe,data=training,
 
 ###Data preprocessing
 
-Did PCA but it didn't help - will drop from the writeup
+Tried PCA but it didn't help - will drop from the writeup
 ```{r}
 # to see the predictors
 # names(training)
-preProc<-preProcess(training[,-c(1:2,56)],method='pca',thresh=.99)
-preProc$numComp
+lastCol<-ncol(training)
+preProc<-preProcess(training[,-c(1:6,lastCol)],method='pca',thresh=.99)
+trainPC<-predict(preProc,training[,-c(1:6,lastCol)])
+validPC<-predict(preProc,validating[,-c(1:6,lastCol)])
+testPC<-predict(preProc,testing[,-c(1:6,lastCol)])
 
-pc<-predict(preProc,training[,-c(1:2,56)])
-trainPC<-cbind(pc,training[,c(1:2,56)])
-dim(trainPC)
-
-pc<-predict(preProc,validating[,-c(1:2,56)])
-validPC<-cbind(pc,validating[,c(1:2,56)])
-
-pc<-predict(preProc,testing[,-c(1:2,56)])
-testPC<-cbind(pc,testing[,c(1:2,56)])
 ```
 
 
@@ -114,9 +110,9 @@ testPC<-cbind(pc,testing[,c(1:2,56)])
 # system.time(modFit<-train(classe~.,method='rf',data=trainPC,prox=T))
 # modFit$finalModel
 
-system.time(PCFit<-randomForest(classe~.,data=trainPC,ntree=500))
+system.time(PCFit<-randomForest(training$classe~.,data=trainPC,ntree=500))
 PCFit
-system.time(modFit<-randomForest(classe~.,data=training,ntree=200))
+system.time(modFit<-randomForest(classe~.,data=training,ntree=500))
 modFit
 
 ```
@@ -124,13 +120,21 @@ modFit
 ###Validation
 ```{r}
 pred<-predict(PCFit,validPC)
-table(pred,validPC$classe)
+table(pred,validating$classe)
 pred<-predict(modFit,validating)
 table(pred,validating$classe)
 ```
 
 ###Testing
+Notice that the variable 'new_window' in testing dataset doesn't have the same levels as that in the training data. We have to add a new level 'yes' into it before it can be used in the model fit from the training model.
 ```{r}
-#pred<-predict(modFit,testing)
-#pred
+levels(testing$new_window)<-c(levels(testing$new_window),'yes')
+pred<-predict(modFit,testing)
+pred
+
+##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
 ```
+
+[Here is the GitHub page.](http://lisun7170.github.io/pml/coursera_wleproj.html)
+

@@ -150,7 +150,7 @@ We have a decent model that gives the out of bagg estimate of __error rate 0.58%
 ###Cross-Validation
 To estimate out of sample error, we provide the following analysis with cross-validation.
 
-This is 50% random sample cross-validation. 
+This is a 2-fold random sampling cross-validation. 
 
 For the first training dataset, we have the following validation result.
 ```{r}
@@ -170,7 +170,7 @@ oos2<-round(1-sum(diag(a))/sum(a),4)
 a
 ```
 
-The estimated __out of sample error is oos = `r (oos1+oos2)/2*100`%__.
+The estimated __out of sample error is oos = `r (oos1+oos2)/2*100`%__ which is an average out of sample error rates oos1 and oos2..
 
 The following plot shows where we were wrong in the prediction during cross validataion.
 

@@ -152,7 +152,7 @@ testPC&lt;-predict(preProc,testing[,-c(1:6,lastCol)])</code></pre>
 <p><em>(a) Principal component random forest model</em></p>
 <pre class="r"><code>system.time(PCFit&lt;-randomForest(training$classe~.,data=trainPC))</code></pre>
 <pre><code>##    user  system elapsed 
-##  17.122   0.043  17.162</code></pre>
+##  17.105   0.043  17.145</code></pre>
 <pre class="r"><code>PCFit</code></pre>
 <pre><code>## 
 ## Call:
@@ -172,7 +172,7 @@ testPC&lt;-predict(preProc,testing[,-c(1:6,lastCol)])</code></pre>
 <p><em>(b) All predictor random forest model</em></p>
 <pre class="r"><code>system.time(modFit&lt;-randomForest(classe~.,data=training)) #reduce ntree=200 when it is slow</code></pre>
 <pre><code>##    user  system elapsed 
-##  19.026   0.047  19.070</code></pre>
+##  19.261   0.048  19.305</code></pre>
 <pre class="r"><code>modFit</code></pre>
 <pre><code>## 
 ## Call:
@@ -195,7 +195,7 @@ testPC&lt;-predict(preProc,testing[,-c(1:6,lastCol)])</code></pre>
 <div id="cross-validation" class="section level3">
 <h3>Cross-Validation</h3>
 <p>To estimate out of sample error, we provide the following analysis with cross-validation.</p>
-<p>This is 50% random sample cross-validation.</p>
+<p>This is a 2-fold random sampling cross-validation.</p>
 <p>For the first training dataset, we have the following validation result.</p>
 <pre class="r"><code>pred&lt;-predict(modFit,validating)
 a&lt;-table(pred,validating$classe)
@@ -211,7 +211,7 @@ a</code></pre>
 <p>We now switch training dataset and validating dataset. We use the validaing dataset to fit a new random forest model then use the training dataset for validation. Here is the result</p>
 <pre class="r"><code>system.time(modFit2&lt;-randomForest(classe~.,data=validating))</code></pre>
 <pre><code>##    user  system elapsed 
-##  18.986   0.046  19.029</code></pre>
+##  19.185   0.047  19.229</code></pre>
 <pre class="r"><code>pred2&lt;-predict(modFit2,training)
 a&lt;-table(pred2,training$classe)
 oos2&lt;-round(1-sum(diag(a))/sum(a),4)
@@ -223,7 +223,7 @@ a</code></pre>
 ##     C    0    3 1693   19    0
 ##     D    0    0    0 1588    4
 ##     E    0    0    0    1 1800</code></pre>
-<p>The estimated <strong>out of sample error is oos = 0.44%</strong>.</p>
+<p>The estimated <strong>out of sample error is oos = 0.44%</strong> which is an average out of sample error rates oos1 and oos2..</p>
 <p>The following plot shows where we were wrong in the prediction during cross validataion.</p>
 <pre class="r"><code>validating$predRight&lt;-pred==validating$classe
 qplot(total_accel_belt,total_accel_arm,col=predRight,data=validating,main='Prediction Errors')</code></pre>

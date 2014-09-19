@@ -126,11 +126,11 @@ To estimate out of sample error, we use the validation data for cross-validation
 ```{r}
 pred<-predict(modFit,validating)
 a<-table(pred,validating$classe)
-oos<-1-sum(diag(a))/sum(a)
+oos<-round(1-sum(diag(a))/sum(a),4)
 a
 ```
 
-The estimated __out of sample error is `r round(1-oos,4)*100`%__.
+The estimated __out of sample error is `r oos*100`%__.
 
 ###Testing
 We now come to testing stage. We need to predict the outcomes from the 20 testing data records labeled by `problem_id_1` to `problem_id_20` using the random forest model we just built.

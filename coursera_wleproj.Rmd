@@ -2,7 +2,12 @@
 title: "PML: Weight Lifting Exercise"
 output: html_document
 ---
-###Background
+###Background (ref. http://groupware.les.inf.puc-rio.br/har)
+
+This human activity recognition research has traditionally focused on discriminating between different activities. The "how (well)" investigation has only received little attention, even though it potentially provides useful information for a large variety of applications,such as sports training.
+
+
+Six young health participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
 
 In this project, we will use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har. 
 
@@ -10,7 +15,6 @@ Our goal is to predict in which one of the 5 ways that participants performed in
 
 
 ###Data 
-
 
 The training data for this project are available here: 
 
@@ -21,13 +25,10 @@ The test data are available here:
 https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
 
 ###Load required libraries
+
 ```{r}
 library(caret)
 library(randomForest)
-library(rattle)
-library(sqldf)
-library(doBy)
-
 ```
 
 ###Read data
@@ -35,27 +36,24 @@ library(doBy)
 ```{r}
 pmltraining <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
 pmltesting <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
-#pmltraining1 <- read.csv("/media/S/Temp/pml-training.csv")
-#pmltesting1 <- read.csv("/media/S/Temp/pml-testing.csv")
 
 ```
 
 ###Data cleaning and partition for validation
+
 ```{r}
 dim(pmltraining);dim(pmltesting)
 ```
 
-We check the data quality in training dataset before modeling. We first convert `#DIV/0!` in a numeric field to `NA`, then use function `colSums` to identify columns that contains missing values. 
+We checked the data quality in training dataset before modeling. We first converted '#DIV/0!' in a numeric field to 'NA', then use function `colSums` to identify columns that contains missing values. 
 
 These columns together with a number of timestamp columns are removed from the training dataset. The same cleaning rule is then applied to the testing dataset.
 
 (We also tried to remove missing records by rows but it turned out to be inapplicable because 98% of rows contain at least one missing value in a certain field.)
 
-We also separated the testing dataset into testing and validating partitions. Set seed so the same result can be reproduced.
-```{r}
-# To see the missing values
-# summary(pmltraining)
+We also separated the testing dataset into testing and validation partitions. Set seed so the same result can be reproduced.
 
+```{r}
 # use training data only to remove NA columns
 prePro<-pmltraining
 prePro[prePro=='#DIV/0!']<-NA
@@ -72,57 +70,86 @@ validating<-mlData[-inTrain,]
 testing<-pmltesting[,nona]
 ```
 
+Cleaned data has  `r ncol(training)` columns and they are
+
+```{r echo=FALSE}
+names(training)
+```
+
+
+
 ###Exploratory plots
 
-Don't know what plots are appropriate yet ...
+We first used `featurePlot` in caret package to look at the relationships among aggregated statistics `total_accel_belt`, `total_accel_arm`,
+`total_accel_dumbbell` and `total_accel_forearm`,
+and we observed two clusters in `total_accel_belt` against other three varialbles. Three individual plots are provided below.
+
 ```{r echo=FALSE}
-toPlot<-sqldf('select
-              classe,
-              total_accel_belt,
-              total_accel_arm,
-              total_accel_dumbbell,
-              total_accel_forearm
-              from training ')
-featurePlot(toPlot[,2:5],toPlot[,1],plot='pairs',xlab='total accel')
+toPlot<-training[,c('classe',
+              'total_accel_belt',
+              'total_accel_arm',
+              'total_accel_dumbbell',
+              'total_accel_forearm')]
+#featurePlot(toPlot[,2:5],toPlot[,1],plot='pairs',xlab='total accel')
 
 qplot(total_accel_belt,total_accel_arm,col=classe,data=training,
+      main='Predictors by classe')
+qplot(total_accel_belt,total_accel_dumbbell,col=classe,data=training,
+      main='Predictors by classe')
+qplot(total_accel_belt,total_accel_forearm,col=classe,data=training,
       main='Predictors by classe')
 ```
 
 ###Data preprocessing
 
-Tried PCA but it didn't help - will drop from the writeup
-```{r echo=FALSE}
-# to see the predictors
-# names(training)
+We tried to use PCA to reduce dimention of predictors, but it didn't help to improve the accuracy, neither to improve the speed of calculation. More detail is in Modeling section.
+
+```{r}
 lastCol<-ncol(training)
 preProc<-preProcess(training[,-c(1:6,lastCol)],method='pca',thresh=.995)
 trainPC<-predict(preProc,training[,-c(1:6,lastCol)])
 validPC<-predict(preProc,validating[,-c(1:6,lastCol)])
 testPC<-predict(preProc,testing[,-c(1:6,lastCol)])
-system.time(PCFit<-randomForest(training$classe~.,data=trainPC))
-PCFit
 
 ```
 
 
 ###Modeling
+The first fitted model is using trainPC dataset in random forest and then it is compared to a randmod forest model using all variables in training set.
+
+The following result shows that the trainPC model does not significantly improve the computing time and OOB error rate is visiblly higher than that in the model using all predictors.
+
+Another side note to make here is that `train` function is comparablly slower than `randomForest` in modeling.
+
 ```{r}
 # very slow!
-# system.time(modFit<-train(classe~.,method='rf',data=trainPC,prox=T))
+# system.time(modFit<-train(classe~.,method='rf',data=trainPC))
 # modFit$finalModel
+```
 
+_(a) Principal component random forest model_
+
+```{r}
+system.time(PCFit<-randomForest(training$classe~.,data=trainPC))
+PCFit
+```
+
+
+_(b) All predictor random forest model_
+
+```{r}
 system.time(modFit<-randomForest(classe~.,data=training)) #reduce ntree=200 when it is slow
 modFit
 
 ```
-We have a pretty decent model from our training data. The out of box estimate of __error rate is 0.6%__.
 
-On the other hand, PC fit is not as good as the fit from all training data, even we kept 99.5% threshood in the PCA model.
+In the following analysis, we will stay with the random forest model using all predictors in training dataset.
 
-To estimate out of sample error, we use the validation data for cross-validation.
+We have a decent model that gives the out of bagg estimate of __error rate 0.58%__.
 
 ###Cross-Validation
+To estimate out of sample error, we provide the following analysis with cross-validation.
+
 ```{r}
 pred<-predict(modFit,validating)
 a<-table(pred,validating$classe)
@@ -130,12 +157,22 @@ oos<-round(1-sum(diag(a))/sum(a),4)
 a
 ```
 
-The estimated __out of sample error is `r oos*100`%__.
+The estimated __out of sample error is oos = `r oos*100`%__.
 
+The following plot shows where we were wrong in the prediction during cross validataion.
+
+```{r}
+validating$predRight<-pred==validating$classe
+qplot(total_accel_belt,total_accel_arm,col=predRight,data=validating,main='Prediction Errors')
+
+```
+
+Compared to the confusion matrix above, most prediction errors occured between classe C and D.
+ 
 ###Testing
-We now come to testing stage. We need to predict the outcomes from the 20 testing data records labeled by `problem_id_1` to `problem_id_20` using the random forest model we just built.
+We now come to the testing stage. We need to predict the outcomes from the 20 testing data records labeled by 'problem_id_1' to 'problem_id_20' using the random forest model we just built.
 
-Notice that the variable `new_window` in testing dataset doesn't have the same levels as that in the training data. We have to add a new level `yes` into it before it can be used in the model fit from the training model.
+Notice that the variable `new_window` in testing dataset doesn't have the same levels as that in the training data. We have to add a new level 'yes' into it before it can be fitted into the training model.
 
 ```{r}
 levels(testing$new_window)<-c(levels(testing$new_window),'yes')

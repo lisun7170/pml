@@ -150,14 +150,27 @@ We have a decent model that gives the out of bagg estimate of __error rate 0.58%
 ###Cross-Validation
 To estimate out of sample error, we provide the following analysis with cross-validation.
 
+This is 50% random sample cross-validation. 
+
+For the first training dataset, we have the following validation result.
 ```{r}
 pred<-predict(modFit,validating)
 a<-table(pred,validating$classe)
-oos<-round(1-sum(diag(a))/sum(a),4)
+oos1<-round(1-sum(diag(a))/sum(a),4)
 a
 ```
 
-The estimated __out of sample error is oos = `r oos*100`%__.
+We now switch training dataset and validating dataset. We use the validaing dataset to fit a new random forest model then use the training dataset for validation. Here is the result
+
+```{r}
+system.time(modFit2<-randomForest(classe~.,data=validating))
+pred2<-predict(modFit2,training)
+a<-table(pred2,training$classe)
+oos2<-round(1-sum(diag(a))/sum(a),4)
+a
+```
+
+The estimated __out of sample error is oos = `r (oos1+oos2)/2*100`%__.
 
 The following plot shows where we were wrong in the prediction during cross validataion.
 
@@ -172,12 +185,13 @@ Compared to the confusion matrix above, most prediction errors occured between c
 ###Testing
 We now come to the testing stage. We need to predict the outcomes from the 20 testing data records labeled by 'problem_id_1' to 'problem_id_20' using the random forest model we just built.
 
-Notice that the variable `new_window` in testing dataset doesn't have the same levels as that in the training data. We have to add a new level 'yes' into it before it can be fitted into the training model.
+Notice that the variable `new_window` in testing dataset doesn't have the same number of levels as that in the training data. We have to add a new level 'yes' into it before it can be fitted into the training model.
 
 ```{r}
 levels(testing$new_window)<-c(levels(testing$new_window),'yes')
 answers<-predict(modFit,testing)
 ```
 
+Our answers are 100% correct.
 [Here is the GitHub page.](http://lisun7170.github.io/pml/coursera_wleproj.html)
 

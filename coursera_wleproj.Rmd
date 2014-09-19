@@ -70,12 +70,11 @@ validating<-mlData[-inTrain,]
 testing<-pmltesting[,nona]
 ```
 
-Cleaned data has  `r ncol(training)` columns and they are
+Cleaned data has  `r ncol(training)` columns:
 
 ```{r echo=FALSE}
 names(training)
 ```
-
 
 
 ###Exploratory plots
@@ -119,13 +118,9 @@ The first fitted model is using trainPC dataset in random forest and then it is 
 
 The following result shows that the trainPC model does not significantly improve the computing time and OOB error rate is visiblly higher than that in the model using all predictors.
 
-Another side note to make here is that `train` function is comparablly slower than `randomForest` in modeling.
+Another side note is that `train` function is comparablly slower than `randomForest` in modeling.
 
-```{r}
-# very slow!
-# system.time(modFit<-train(classe~.,method='rf',data=trainPC))
-# modFit$finalModel
-```
+Here are the outcomes from the two models -
 
 _(a) Principal component random forest model_
 
@@ -134,11 +129,10 @@ system.time(PCFit<-randomForest(training$classe~.,data=trainPC))
 PCFit
 ```
 
-
 _(b) All predictor random forest model_
 
 ```{r}
-system.time(modFit<-randomForest(classe~.,data=training)) #reduce ntree=200 when it is slow
+system.time(modFit<-randomForest(classe~.,data=training)) #ntree=200 achieves a similar accuracy!
 modFit
 
 ```
@@ -160,7 +154,7 @@ oos1<-round(1-sum(diag(a))/sum(a),4)
 a
 ```
 
-We now switch training dataset and validating dataset. We use the validaing dataset to fit a new random forest model then use the training dataset for validation. Here is the result
+We now switch positions between training dataset and validating dataset. We use the validaing dataset to fit a new random forest model then use the training dataset for a validation. Here is the result
 
 ```{r}
 system.time(modFit2<-randomForest(classe~.,data=validating))
@@ -172,7 +166,7 @@ a
 
 The estimated __out of sample error is oos = `r (oos1+oos2)/2*100`%__ which is an average out of sample error rates oos1 and oos2..
 
-The following plot shows where we were wrong in the prediction during cross validataion.
+The following plot shows where we missed the prediction in the first cross validataion.
 
 ```{r}
 validating$predRight<-pred==validating$classe
